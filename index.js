@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const express = require('express');
+const fs = require('fs'); // 👈 Native file manager to save your questions safely!
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
@@ -11,13 +12,23 @@ app.listen(process.env.PORT || 3000);
 const staffRoles = ['1506139327023808533', '1509798830835503225', '1513112567676145839'];
 const staffChannelId = '1512930000163045587';
 
-// We only need a temporary map for answers mid-process. Questions are safely stored on Discord!
 const temporaryAnswers = new Map();
+
+// Helper to safely fetch questions from database file
+function loadQuestions() {
+    if (!fs.existsSync('./questions.json')) fs.writeFileSync('./questions.json', JSON.stringify({}));
+    return JSON.parse(fs.readFileSync('./questions.json', 'utf8'));
+}
+
+// Helper to safely save questions to database file
+function saveQuestions(data) {
+    fs.writeFileSync('./questions.json', JSON.stringify(data, null, 2));
+}
 
 client.on('interactionCreate', async (interaction) => {
 
     // ────────────────────────────────────────────────────────
-    // PART A: COMMAND SETUP (PACKS QUESTIONS INTO THE BUTTON)
+    // PART A: COMMAND SETUP (SAVES LONG QUESTIONS TO FILE)
     // ────────────────────────────────────────────────────────
     if (interaction.isChatInputCommand() && interaction.commandName === 'create_application') {
         const hasRole = interaction.member.roles.cache.some(role => staffRoles.includes(role.id));
@@ -29,16 +40,16 @@ client.on('interactionCreate', async (interaction) => {
         const customQuestionsList = [];
         for (let i = 1; i <= 10; i++) {
             const qText = interaction.options.getString(`question_${i}`);
-            if (qText) customQuestionsList.push(qText.replace(/\|/g, '')); // Remove vertical bars to avoid splitting bugs
+            if (qText) customQuestionsList.push(qText);
         }
 
-        // Encapsulate the questions directly inside the button ID, separated by "|"
-        const serializedQuestions = customQuestionsList.join('|');
+        // Generate a random unique 6-digit ID for this specific application message post
+        const appId = Math.floor(100000 + Math.random() * 900000).toString();
         
-        // Discord limits custom IDs to 100 characters. If your total text is too long, we keep an explicit warning!
-        if (serializedQuestions.length > 75) {
-            return interaction.reply({ content: '❌ Your questions combined are too long! Keep the total text short so Discord can store them safely inside the button.', ephemeral: true });
-        }
+        // Save to our persistent JSON flat file database
+        const db = loadQuestions();
+        db[appId] = customQuestionsList;
+        saveQuestions(db);
 
         const openEmbed = new EmbedBuilder()
             .setColor('#2b2d31')
@@ -47,7 +58,7 @@ client.on('interactionCreate', async (interaction) => {
 
         const openRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId(`start_dyn_app_p1_${serializedQuestions}`) // 👈 Questions saved here forever!
+                .setCustomId(`start_dyn_app_p1_${appId}`) // 👈 Only 6 numbers stored here, leaves 94 characters free!
                 .setLabel('Apply Here')
                 .setStyle(ButtonStyle.Primary)
         );
@@ -60,13 +71,13 @@ client.on('interactionCreate', async (interaction) => {
     // PART B: DISPLAY PAGE 1 (Up to the first 5 questions)
     // ────────────────────────────────────────────────────────
     if (interaction.isButton() && interaction.customId.startsWith('start_dyn_app_p1_')) {
-        // Extract the questions array back out from the button ID string
-        const questionsStr = interaction.customId.replace('start_dyn_app_p1_', '');
-        const questions = questionsStr.split('|').filter(Boolean);
+        const appId = interaction.customId.replace('start_dyn_app_p1_', '');
+        const db = loadQuestions();
+        const questions = db[appId] || [];
 
-        if (questions.length === 0) return interaction.reply({ content: '❌ No questions found embedded inside this application.', ephemeral: true });
+        if (questions.length === 0) return interaction.reply({ content: '❌ Application data not found. Please re-run setup command.', ephemeral: true });
 
-        const modal = new ModalBuilder().setCustomId(`sub_dyn_p1_${questionsStr}`).setTitle('Application: Part 1');
+        const modal = new ModalBuilder().setCustomId(`sub_dyn_p1_${appId}`).setTitle('Application: Part 1');
         
         const page1Limit = Math.min(questions.length, 5);
         for (let i = 0; i < page1Limit; i++) {
@@ -85,8 +96,9 @@ client.on('interactionCreate', async (interaction) => {
     // PART C: CAPTURE PAGE 1 & SHOW PAGE 2 IF NEEDED
     // ────────────────────────────────────────────────────────
     if (interaction.isModalSubmit() && interaction.customId.startsWith('sub_dyn_p1_')) {
-        const questionsStr = interaction.customId.replace('sub_dyn_p1_', '');
-        const questions = questionsStr.split('|').filter(Boolean);
+        const appId = interaction.customId.replace('sub_dyn_p1_', '');
+        const db = loadQuestions();
+        const questions = db[appId] || [];
         const page1Limit = Math.min(questions.length, 5);
         
         const answersCache = {};
@@ -100,9 +112,8 @@ client.on('interactionCreate', async (interaction) => {
             return compileAndSendApplication(interaction, questions);
         }
 
-        // Pass questions down to page 2 through the next green button's ID
         const nextRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`start_dyn_app_p2_${questionsStr}`).setLabel('Click to open Part 2').setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId(`start_dyn_app_p2_${appId}`).setLabel('Click to open Part 2').setStyle(ButtonStyle.Success)
         );
 
         return interaction.reply({
@@ -113,10 +124,11 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('start_dyn_app_p2_')) {
-        const questionsStr = interaction.customId.replace('start_dyn_app_p2_', '');
-        const questions = questionsStr.split('|').filter(Boolean);
+        const appId = interaction.customId.replace('start_dyn_app_p2_', '');
+        const db = loadQuestions();
+        const questions = db[appId] || [];
         
-        const modal = new ModalBuilder().setCustomId(`sub_dyn_p2_${questionsStr}`).setTitle('Application: Part 2');
+        const modal = new ModalBuilder().setCustomId(`sub_dyn_p2_${appId}`).setTitle('Application: Part 2');
 
         for (let i = 5; i < questions.length; i++) {
             const input = new TextInputBuilder()
@@ -134,8 +146,9 @@ client.on('interactionCreate', async (interaction) => {
     // PART D: CAPTURE PAGE 2 AND COMPILE FINAL SUBMISSION
     // ────────────────────────────────────────────────────────
     if (interaction.isModalSubmit() && interaction.customId.startsWith('sub_dyn_p2_')) {
-        const questionsStr = interaction.customId.replace('sub_dyn_p2_', '');
-        const questions = questionsStr.split('|').filter(Boolean);
+        const appId = interaction.customId.replace('sub_dyn_p2_', '');
+        const db = loadQuestions();
+        const questions = db[appId] || [];
         const answersCache = temporaryAnswers.get(interaction.user.id) || {};
 
         for (let i = 5; i < questions.length; i++) {
@@ -193,7 +206,6 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-// Helper function to compile fields and send clean clean arrays to staff logs
 async function compileAndSendApplication(interaction, questions) {
     const userId = interaction.user.id;
     const finalAnswers = temporaryAnswers.get(userId);
