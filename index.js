@@ -10,7 +10,7 @@ app.listen(process.env.PORT || 3000);
 
 // Server Tracker Configs
 const staffRoles = ['1506139327023808533', '1509798830835503225', '1513112567676145839'];
-const staffChannelId = '1512930322453627000';
+const staffChannelId = '1513133546754277476';
 
 const temporaryAnswers = new Map();
 
