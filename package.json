@@ -1,16 +1,12 @@
 {
   "name": "discord-application-bot",
   "version": "1.0.0",
-  "description": "A secure application management bot for staff reviews.",
-  "main": "index.js",
+  "main": "Index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node Index.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "dotenv": "^16.4.5"
-  },
-  "engines": {
-    "node": ">=16.11.0"
+    "express": "^4.19.2"
   }
 }
