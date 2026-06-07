@@ -30,7 +30,7 @@ client.on('interactionCreate', async (interaction) => {
     // ────────────────────────────────────────────────────────
     // PART A: COMMAND SETUP (SAVES LONG QUESTIONS TO FILE)
     // ────────────────────────────────────────────────────────
-    if (interaction.isChatInputCommand() && interaction.commandName === 'create_application') {
+    if (interaction.isChatInputCommand() && interaction.commandName === 'Application_Creation') {
         const hasRole = interaction.member.roles.cache.some(role => staffRoles.includes(role.id));
         if (!hasRole) return interaction.reply({ content: '❌ No permission.', ephemeral: true });
 
