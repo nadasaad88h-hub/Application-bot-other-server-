@@ -1,104 +1,201 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
-// CHANGE THIS LINE AT THE TOP OF YOUR NOTE:
 const client = new Client({ 
-    intents: [
-        GatewayIntentBits.Guilds, 
-        GatewayIntentBits.GuildMessages
-    ] 
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] 
 });
 
-// 1. Define your constant configurations at the top
+// 1. Configurations
 const staffRoles = ['1506139327023808533', '1509798830835503225', '1513112567676145839'];
-const rolePings = staffRoles.map(id => `<@&${id}>`).join(' ');
 const staffChannelId = '1512930000163045587';
 
-// 2. Main Gateway: Listens for ALL interactions (Commands & Buttons)
+// Temporary storage to save page 1 answers while user fills out page 2
+const temporaryAnswers = new Map();
+
 client.on('interactionCreate', async (interaction) => {
 
     // ────────────────────────────────────────────────────────
-    // PART A: THE COMMAND TO CREATE THE APPLICATION EMBED
+    // PART A: COMMAND TO POST THE PUBLIC APPLICATION SIGN-UP
     // ────────────────────────────────────────────────────────
     if (interaction.isChatInputCommand()) {
         if (interaction.commandName === 'create_application') {
             
-            // Authorization Check
             const hasRole = interaction.member.roles.cache.some(role => staffRoles.includes(role.id));
-            if (!hasRole) {
-                return interaction.reply({ 
-                    content: '❌ You do not have permission to use this command.', 
-                    ephemeral: true 
-                });
-            }
+            if (!hasRole) return interaction.reply({ content: '❌ No permission.', ephemeral: true });
 
-            // Extract User Options
-            const title = interaction.options.getString('title');
-            const information = interaction.options.getString('information');
-            const duration = interaction.options.getString('duration');
-            const formLink = interaction.options.getString('form_link');
-
-            // Validate Info Length
-            if (information.length < 50) {
-                return interaction.reply({
-                    content: `❌ The information text must be at least 50 characters long. (You provided ${information.length} characters).`,
-                    ephemeral: true
-                });
-            }
+            // Ensure your deployed Slash Command registry ONLY expects these two inputs!
+            const title = interaction.options.getString('title') || 'Community Application';
+            const information = interaction.options.getString('information') || 'Apply to join our team!';
 
             try {
-                // Fetch target channel and push the embed
-                const targetChannel = await interaction.guild.channels.fetch(staffChannelId);
-                if (!targetChannel) {
-                    return interaction.reply({ content: '❌ Target channel not found.', ephemeral: true });
-                }
+                const publicChannel = interaction.channel; 
+                
+                const openEmbed = new EmbedBuilder()
+                    .setColor('#2b2d31')
+                    .setDescription(`## ${title}\n\n${information}\n\nClick the button below to start your application!`)
+                    .setFooter({ text: 'Make sure to complete both parts of the form.' });
 
-                const appEmbed = new EmbedBuilder()
-                    .setColor('#2b2d31') 
-                    .setDescription(`## ${title}\n\n${information}\n\n⏳ **Duration:** ${duration}\n\n📝 **Apply Here:** [Click here to open the Application](${formLink})`)
-                    .setFooter({ text: 'Make sure to read all instructions before applying!' })
-                    .setTimestamp();
+                const openRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('start_app_page1')
+                        .setLabel('Apply Here')
+                        .setStyle(ButtonStyle.Primary)
+                );
 
-                await targetChannel.send({ embeds: [appEmbed] });
+                await publicChannel.send({ embeds: [openEmbed], components: [openRow] });
+                return interaction.reply({ content: '✅ Application post deployed successfully!', ephemeral: true });
 
-                return interaction.reply({ 
-                    content: '✅ Application has been successfully created.', 
-                    ephemeral: true 
-                });
-
-            } catch (error) {
-                console.error(error);
-                return interaction.reply({ content: '❌ Something went wrong while posting the embed.', ephemeral: true });
+            } catch (err) {
+                console.error(err);
+                return interaction.reply({ content: '❌ Code execution failed.', ephemeral: true });
             }
         }
-        return; // Stops execution here so commands don't hit button logic
+        return;
     }
 
     // ────────────────────────────────────────────────────────
-    // PART B: THE ACTION HANDLING FOR THE ACCEPT/DENY BUTTONS
+    // PART B: LAUNCH PAGE 1 (5 Required Questions)
     // ────────────────────────────────────────────────────────
-    if (!interaction.isButton()) return;
+    if (interaction.isButton() && interaction.customId === 'start_app_page1') {
+        const modal = new ModalBuilder()
+            .setCustomId('submit_app_page1')
+            .setTitle('Application: Part 1 (Required)');
+
+        // Customise the labels below with your 5 required questions
+        const q1 = new TextInputBuilder().setCustomId('req_q1').setLabel('Required Question 1').setStyle(TextInputStyle.Short).setRequired(true);
+        const q2 = new TextInputBuilder().setCustomId('req_q2').setLabel('Required Question 2').setStyle(TextInputStyle.Paragraph).setRequired(true);
+        const q3 = new TextInputBuilder().setCustomId('req_q3').setLabel('Required Question 3').setStyle(TextInputStyle.Paragraph).setRequired(true);
+        const q4 = new TextInputBuilder().setCustomId('req_q4').setLabel('Required Question 4').setStyle(TextInputStyle.Paragraph).setRequired(true);
+        const q5 = new TextInputBuilder().setCustomId('req_q5').setLabel('Required Question 5').setStyle(TextInputStyle.Paragraph).setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(q1),
+            new ActionRowBuilder().addComponents(q2),
+            new ActionRowBuilder().addComponents(q3),
+            new ActionRowBuilder().addComponents(q4),
+            new ActionRowBuilder().addComponents(q5)
+        );
+
+        return interaction.showModal(modal);
+    }
+
+    // ────────────────────────────────────────────────────────
+    // PART C: CAPTURE PAGE 1 & PROMPT PAGE 2 (5 Optional Questions)
+    // ────────────────────────────────────────────────────────
+    if (interaction.isModalSubmit() && interaction.customId === 'submit_app_page1') {
+        temporaryAnswers.set(interaction.user.id, {
+            q1: interaction.fields.getTextInputValue('req_q1'),
+            q2: interaction.fields.getTextInputValue('req_q2'),
+            q3: interaction.fields.getTextInputValue('req_q3'),
+            q4: interaction.fields.getTextInputValue('req_q4'),
+            q5: interaction.fields.getTextInputValue('req_q5'),
+        });
+
+        const nextRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('start_app_page2')
+                .setLabel('Click to open Part 2 (Optional)')
+                .setStyle(ButtonStyle.Success)
+        );
+
+        return interaction.reply({
+            content: '✅ Part 1 saved successfully! Click the button below to finish your application.',
+            components: [nextRow],
+            ephemeral: true
+        });
+    }
+
+    if (interaction.isButton() && interaction.customId === 'start_app_page2') {
+        const modal = new ModalBuilder()
+            .setCustomId('submit_app_page2')
+            .setTitle('Application: Part 2 (Optional)');
+
+        // Customise the labels below with your 5 optional questions
+        const q6 = new TextInputBuilder().setCustomId('opt_q1').setLabel('Optional Question 1').setStyle(TextInputStyle.Paragraph).setRequired(false);
+        const q7 = new TextInputBuilder().setCustomId('opt_q2').setLabel('Optional Question 2').setStyle(TextInputStyle.Paragraph).setRequired(false);
+        const q8 = new TextInputBuilder().setCustomId('opt_q3').setLabel('Optional Question 3').setStyle(TextInputStyle.Paragraph).setRequired(false);
+        const q9 = new TextInputBuilder().setCustomId('opt_q4').setLabel('Optional Question 4').setStyle(TextInputStyle.Paragraph).setRequired(false);
+        const q10 = new TextInputBuilder().setCustomId('opt_q5').setLabel('Optional Question 5').setStyle(TextInputStyle.Paragraph).setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(q6),
+            new ActionRowBuilder().addComponents(q7),
+            new ActionRowBuilder().addComponents(q8),
+            new ActionRowBuilder().addComponents(q9),
+            new ActionRowBuilder().addComponents(q10)
+        );
+
+        return interaction.showModal(modal);
+    }
+
+    // ────────────────────────────────────────────────────────
+    // PART D: COMPILE ALL 10 ANSWERS & POST TO STAFF ROOM
+    // ────────────────────────────────────────────────────────
+    if (interaction.isModalSubmit() && interaction.customId === 'submit_app_page2') {
+        const userId = interaction.user.id;
+        const page1 = temporaryAnswers.get(userId);
+
+        if (!page1) {
+            return interaction.reply({ content: '❌ Session expired or timed out. Please start over from Part 1.', ephemeral: true });
+        }
+
+        const opt1 = interaction.fields.getTextInputValue('opt_q1') || 'None provided';
+        const opt2 = interaction.fields.getTextInputValue('opt_q2') || 'None provided';
+        const opt3 = interaction.fields.getTextInputValue('opt_q3') || 'None provided';
+        const opt4 = interaction.fields.getTextInputValue('opt_q4') || 'None provided';
+        const opt5 = interaction.fields.getTextInputValue('opt_q5') || 'None provided';
+
+        try {
+            const staffChannel = await interaction.guild.channels.fetch(staffChannelId);
+            if (!staffChannel) return interaction.reply({ content: '❌ Staff channel configurations missing.', ephemeral: true });
+            
+            const submissionEmbed = new EmbedBuilder()
+                .setColor('#5865F2')
+                .setTitle('📥 New Local Application Submitted')
+                .setDescription(`**Applicant:** <@${userId}> (${interaction.user.tag})\n\n` +
+                                `### 🟢 Required Answers:\n` +
+                                `* **Q1:** ${page1.q1}\n* **Q2:** ${page1.q2}\n* **Q3:** ${page1.q3}\n* **Q4:** ${page1.q4}\n* **Q5:** ${page1.q5}\n\n` +
+                                `### 🟡 Optional Answers:\n` +
+                                `* **Q6:** ${opt1}\n* **Q7:** ${opt2}\n* **Q8:** ${opt3}\n* **Q9:** ${opt4}\n* **Q10:** ${opt5}`)
+                .setTimestamp();
+
+            const evaluationButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('app_accept').setLabel('Accept').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId('app_deny').setLabel('Deny').setStyle(ButtonStyle.Danger)
+            );
+
+            await staffChannel.send({ embeds: [submissionEmbed], components: [evaluationButtons] });
+            
+            temporaryAnswers.delete(userId);
+
+            return interaction.update({
+                content: '🎉 Thank you! Your application answers have been sent directly to our staff team for evaluation.',
+                components: []
+            });
+
+        } catch (error) {
+            console.error(error);
+            return interaction.reply({ content: '❌ Failed sending entry to staff channel.', ephemeral: true });
+        }
+    }
+
+    // ────────────────────────────────────────────────────────
+    // PART E: EVALUATION MANAGER (Staff Action Triggers)
+    // ────────────────────────────────────────────────────────
+    if (!interaction.isButton()) return; // Safe to lock here now since modals are handled above!
 
     const { customId, user, message } = interaction;
     
-    // Ensure only authorized staff can press these buttons
-    const hasRole = interaction.member.roles.cache.some(role => staffRoles.includes(role.id));
-    if (!hasRole) {
-        return interaction.reply({ content: '❌ Only authorized staff can process applications.', ephemeral: true });
+    if (['app_accept', 'app_deny', 'cancel_action'].includes(customId) || customId.startsWith('confirm_')) {
+        const hasRole = interaction.member.roles.cache.some(role => staffRoles.includes(role.id));
+        if (!hasRole) return interaction.reply({ content: '❌ Only authorized staff can process applications.', ephemeral: true });
     }
 
-    // --- STEP 1: INITIAL BUTTON CLICK (ACCEPT/DENY) ---
     if (customId === 'app_accept' || customId === 'app_deny') {
         const action = customId === 'app_accept' ? 'accept' : 'deny';
 
         const confirmRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`confirm_${action}_${message.id}`)
-                .setLabel('Confirm')
-                .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId('cancel_action')
-                .setLabel('Cancel')
-                .setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId(`confirm_${action}_${message.id}`).setLabel('Confirm').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('cancel_action').setLabel('Cancel').setStyle(ButtonStyle.Danger)
         );
 
         return interaction.reply({
@@ -108,7 +205,6 @@ client.on('interactionCreate', async (interaction) => {
         });
     }
 
-    // --- STEP 2: HANDLE CANCEL ---
     if (customId === 'cancel_action') {
         return interaction.update({
             content: '❌ Action cancelled. The application remains pending.',
@@ -116,40 +212,24 @@ client.on('interactionCreate', async (interaction) => {
         });
     }
 
-    // --- STEP 3: HANDLE CONFIRMATION ---
     if (customId.startsWith('confirm_')) {
         const [, action, originalMessageId] = customId.split('_');
         
         try {
             const staffChannel = await interaction.guild.channels.fetch(staffChannelId);
-            if (!staffChannel) return interaction.reply({ content: '❌ Staff channel not found.', ephemeral: true });
-
             const originalMessage = await staffChannel.messages.fetch(originalMessageId);
-            if (!originalMessage) {
-                return interaction.reply({ content: '❌ Original application message not found.', ephemeral: true });
-            }
 
             if (action === 'accept') {
                 const updatedRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('app_accepted_disabled')
-                        .setLabel('Accepted')
-                        .setStyle(ButtonStyle.Success)
-                        .setDisabled(true)
+                    new ButtonBuilder().setCustomId('app_accepted_disabled').setLabel('Accepted').setStyle(ButtonStyle.Success).setDisabled(true)
                 );
-
                 await originalMessage.edit({ components: [updatedRow] });
                 await originalMessage.reply({ content: `✅ Application has been Accepted by <@${user.id}>` });
 
             } else if (action === 'deny') {
                 const updatedRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('app_denied_disabled')
-                        .setLabel('Denied')
-                        .setStyle(ButtonStyle.Danger)
-                        .setDisabled(true)
+                    new ButtonBuilder().setCustomId('app_denied_disabled').setLabel('Denied').setStyle(ButtonStyle.Danger).setDisabled(true)
                 );
-
                 await originalMessage.edit({ components: [updatedRow] });
                 await originalMessage.reply({ content: `❌ Application has been denied by <@${user.id}>` });
             }
@@ -160,11 +240,10 @@ client.on('interactionCreate', async (interaction) => {
             });
 
         } catch (error) {
-            console.error("Error processing confirmation:", error);
-            await interaction.reply({ content: '❌ An error occurred while updating the application status.', ephemeral: true });
+            console.error(error);
+            await interaction.reply({ content: '❌ Error updating execution status.', ephemeral: true });
         }
     }
 });
 
-// Log your bot in using your environment variable token
 client.login(process.env.TOKEN);
