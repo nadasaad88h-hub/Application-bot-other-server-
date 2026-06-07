@@ -4,7 +4,7 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] 
 });
 
-// 1. Configurations
+// 1. Your Server Configurations (Permanently Saved)
 const staffRoles = ['1506139327023808533', '1509798830835503225', '1513112567676145839'];
 const staffChannelId = '1512930000163045587';
 
@@ -22,7 +22,6 @@ client.on('interactionCreate', async (interaction) => {
             const hasRole = interaction.member.roles.cache.some(role => staffRoles.includes(role.id));
             if (!hasRole) return interaction.reply({ content: '❌ No permission.', ephemeral: true });
 
-            // Ensure your deployed Slash Command registry ONLY expects these two inputs!
             const title = interaction.options.getString('title') || 'Community Application';
             const information = interaction.options.getString('information') || 'Apply to join our team!';
 
@@ -60,7 +59,7 @@ client.on('interactionCreate', async (interaction) => {
             .setCustomId('submit_app_page1')
             .setTitle('Application: Part 1 (Required)');
 
-        // Customise the labels below with your 5 required questions
+        // 📝 TYPE YOUR REQUIRED QUESTIONS INSIDE THE SINGLE QUOTES BELOW:
         const q1 = new TextInputBuilder().setCustomId('req_q1').setLabel('Required Question 1').setStyle(TextInputStyle.Short).setRequired(true);
         const q2 = new TextInputBuilder().setCustomId('req_q2').setLabel('Required Question 2').setStyle(TextInputStyle.Paragraph).setRequired(true);
         const q3 = new TextInputBuilder().setCustomId('req_q3').setLabel('Required Question 3').setStyle(TextInputStyle.Paragraph).setRequired(true);
@@ -109,7 +108,7 @@ client.on('interactionCreate', async (interaction) => {
             .setCustomId('submit_app_page2')
             .setTitle('Application: Part 2 (Optional)');
 
-        // Customise the labels below with your 5 optional questions
+        // 📝 TYPE YOUR OPTIONAL QUESTIONS INSIDE THE SINGLE QUOTES BELOW:
         const q6 = new TextInputBuilder().setCustomId('opt_q1').setLabel('Optional Question 1').setStyle(TextInputStyle.Paragraph).setRequired(false);
         const q7 = new TextInputBuilder().setCustomId('opt_q2').setLabel('Optional Question 2').setStyle(TextInputStyle.Paragraph).setRequired(false);
         const q8 = new TextInputBuilder().setCustomId('opt_q3').setLabel('Optional Question 3').setStyle(TextInputStyle.Paragraph).setRequired(false);
@@ -181,7 +180,7 @@ client.on('interactionCreate', async (interaction) => {
     // ────────────────────────────────────────────────────────
     // PART E: EVALUATION MANAGER (Staff Action Triggers)
     // ────────────────────────────────────────────────────────
-    if (!interaction.isButton()) return; // Safe to lock here now since modals are handled above!
+    if (!interaction.isButton()) return; 
 
     const { customId, user, message } = interaction;
     
