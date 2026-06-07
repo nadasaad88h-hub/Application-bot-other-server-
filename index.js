@@ -1,8 +1,14 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const express = require('express'); // 👈 REQUIRED FOR RENDER FREE PLAN
 
 const client = new Client({ 
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] 
 });
+
+// 🛠️ RENDER FAKE PORT FIX: This stops the Port Scan Timeout error!
+const app = express();
+app.get('/', (req, res) => res.send('Bot online!'));
+app.listen(process.env.PORT || 3000, () => console.log('Render port binding successful.'));
 
 // 1. Your Server Configurations (Permanently Saved)
 const staffRoles = ['1506139327023808533', '1509798830835503225', '1513112567676145839'];
