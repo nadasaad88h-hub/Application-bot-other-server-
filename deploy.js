@@ -7,20 +7,20 @@ const guildId = '1506139326579216415';      // 👈 Replace with your Server's I
 const commands = [
     {
         name: 'create_application',
-        description: 'Deploys the application sign-up post to this channel.',
+        description: 'Deploys a fully dynamic custom application post.',
         options: [
-            {
-                name: 'title',
-                description: 'The main heading title for the embed box.',
-                type: ApplicationCommandOptionType.String,
-                required: false,
-            },
-            {
-                name: 'information',
-                description: 'The text instructions inside the embed box.',
-                type: ApplicationCommandOptionType.String,
-                required: false,
-            }
+            { name: 'title', description: 'The heading title for the embed.', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'information', description: 'The instructions inside the embed.', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'question_1', description: 'Custom Question 1', type: ApplicationCommandOptionType.String, required: true },
+            { name: 'question_2', description: 'Custom Question 2', type: ApplicationCommandOptionType.String, required: false },
+            { name: 'question_3', description: 'Custom Question 3', type: ApplicationCommandOptionType.String, required: false },
+            { name: 'question_4', description: 'Custom Question 4', type: ApplicationCommandOptionType.String, required: false },
+            { name: 'question_5', description: 'Custom Question 5', type: ApplicationCommandOptionType.String, required: false },
+            { name: 'question_6', description: 'Custom Question 6', type: ApplicationCommandOptionType.String, required: false },
+            { name: 'question_7', description: 'Custom Question 7', type: ApplicationCommandOptionType.String, required: false },
+            { name: 'question_8', description: 'Custom Question 8', type: ApplicationCommandOptionType.String, required: false },
+            { name: 'question_9', description: 'Custom Question 9', type: ApplicationCommandOptionType.String, required: false },
+            { name: 'question_10', description: 'Custom Question 10', type: ApplicationCommandOptionType.String, required: false },
         ]
     }
 ];
@@ -29,14 +29,9 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 (async () => {
     try {
-        console.log('🔄 Started refreshing application (/) commands.');
-
-        await rest.put(
-            Routes.applicationGuildCommands(clientId, guildId),
-            { body: commands },
-        );
-
-        console.log('✅ Successfully reloaded application (/) commands!');
+        console.log('🔄 Updating dynamic application slash command configurations...');
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
+        console.log('✅ Success! Slash commands updated. You can run your Render command shuffle now.');
     } catch (error) {
         console.error(error);
     }
