@@ -2,9 +2,9 @@
   "name": "discord-application-bot",
   "version": "1.0.0",
   "description": "A secure application management bot for staff reviews.",
-  "main": "Index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node Index.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
