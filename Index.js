@@ -25,49 +25,7 @@ function saveQuestions(data) {
     fs.writeFileSync('./questions.json', JSON.stringify(data, null, 2));
 }
 
-client.on('interactionCreate', async (interaction) => {
-
-    // ────────────────────────────────────────────────────────
-    // PART A: COMMAND SETUP (SAVES LONG QUESTIONS TO FILE)
-    // ────────────────────────────────────────────────────────
-    if (interaction.isChatInputCommand() && interaction.commandName === 'create_application') {
-        const hasRole = interaction.member.roles.cache.some(role => staffRoles.includes(role.id));
-        if (!hasRole) return interaction.reply({ content: '❌ No permission.', ephemeral: true });
-
-        const title = interaction.options.getString('title');
-        const information = interaction.options.getString('information');
-
-        const customQuestionsList = [];
-        for (let i = 1; i <= 10; i++) {
-            const qText = interaction.options.getString(`question_${i}`);
-            if (qText) customQuestionsList.push(qText);
-        }
-
-        // Generate a random unique 6-digit ID for this specific application message post
-        const appId = Math.floor(100000 + Math.random() * 900000).toString();
-        
-        // Save to our persistent JSON flat file database
-        const db = loadQuestions();
-        db[appId] = customQuestionsList;
-        saveQuestions(db);
-
-        const openEmbed = new EmbedBuilder()
-            .setColor('#2b2d31')
-            .setDescription(`## ${title}\n\n${information}\n\nClick below to begin. This form contains **${customQuestionsList.length} total questions**.`)
-            .setFooter({ text: 'Application Processing System' });
-
-        const openRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`start_dyn_app_p1_${appId}`) // 👈 Only 6 numbers stored here, leaves 94 characters free!
-                .setLabel('Apply Here')
-                .setStyle(ButtonStyle.Primary)
-        );
-
-        await interaction.channel.send({ embeds: [openEmbed], components: [openRow] });
-        return interaction.reply({ content: '✅ Custom application posted successfully!', ephemeral: true });
-    }
-
-    // ────────────────────────────────────────────────────────
+client.on('interactionCreate', async (interaction) => {    // ────────────────────────────────────────────────────────
     // PART B: DISPLAY PAGE 1 (Up to the first 5 questions)
     // ────────────────────────────────────────────────────────
     if (interaction.isButton() && interaction.customId.startsWith('start_dyn_app_p1_')) {
@@ -83,9 +41,64 @@ client.on('interactionCreate', async (interaction) => {
         for (let i = 0; i < page1Limit; i++) {
             const input = new TextInputBuilder()
                 .setCustomId(`dyn_q_${i}`)
-                .setLabel(questions[i].substring(0, 45)) 
+                // Bold label text safely short to prevent truncation/hiding
+                .setLabel(`Question ${i + 1} (Read details inside box)`) 
+                // Full uncut prompt displays beautifully inside the text layout zone
+                .setPlaceholder(questions[i].substring(0, 100)) 
                 .setStyle(TextInputStyle.Paragraph)
                 .setRequired(true);
+            modal.addComponents(new ActionRowBuilder().addComponents(input));
+        }
+
+        return interaction.showModal(modal);
+    }
+
+    // ────────────────────────────────────────────────────────
+    // PART C: CAPTURE PAGE 1 & SHOW PAGE 2 IF NEEDED
+    // ────────────────────────────────────────────────────────
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('sub_dyn_p1_')) {
+        const appId = interaction.customId.replace('sub_dyn_p1_', '');
+        const db = loadQuestions();
+        const questions = db[appId] || [];
+        const page1Limit = Math.min(questions.length, 5);
+        
+        const answersCache = {};
+        for (let i = 0; i < page1Limit; i++) {
+            answersCache[questions[i]] = interaction.fields.getTextInputValue(`dyn_q_${i}`);
+        }
+        
+        temporaryAnswers.set(interaction.user.id, answersCache);
+
+        if (questions.length <= 5) {
+            return compileAndSendApplication(interaction, questions);
+        }
+
+        const nextRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`start_dyn_app_p2_${appId}`).setLabel('Click to open Part 2').setStyle(ButtonStyle.Success)
+        );
+
+        return interaction.reply({
+            content: '✅ Part 1 saved. Click below to answer the remaining custom questions.',
+            components: [nextRow],
+            ephemeral: true
+        });
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('start_dyn_app_p2_')) {
+        const appId = interaction.customId.replace('start_dyn_app_p2_', '');
+        const db = loadQuestions();
+        const questions = db[appId] || [];
+        
+        const modal = new ModalBuilder().setCustomId(`sub_dyn_p2_${appId}`).setTitle('Application: Part 2');
+
+        for (let i = 5; i < questions.length; i++) {
+            const input = new TextInputBuilder()
+                .setCustomId(`dyn_q_${i}`)
+                // Matches the styling of Part 1 for clean visual symmetry
+                .setLabel(`Question ${i + 1} (Read details inside box)`)
+                .setPlaceholder(questions[i].substring(0, 100))
+                .setStyle(TextInputStyle.Paragraph)
+                .setRequired(false);
             modal.addComponents(new ActionRowBuilder().addComponents(input));
         }
 
