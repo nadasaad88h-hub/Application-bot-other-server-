@@ -1,29 +1,27 @@
-const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
+const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 
-// 1. Put your custom server details here
-const clientId = '1513156161753583727'; // 👈 Replace with your Bot's Client ID
-const guildId = '1506139326579216415';      // 👈 Replace with your Server's ID
+// 1. Double-check these credentials match your Discord Developer Portal precisely!
+const clientId = '1513156161753583727'; 
+const guildId = '1506139326579216415';      
 
-const commands = [
-    {
-        name: 'create_application',
-        description: 'Deploys a fully dynamic custom application post.',
-        options: [
-            { name: 'title', description: 'The heading title for the embed.', type: ApplicationCommandOptionType.String, required: true },
-            { name: 'information', description: 'The instructions inside the embed.', type: ApplicationCommandOptionType.String, required: true },
-            { name: 'question_1', description: 'Custom Question 1', type: ApplicationCommandOptionType.String, required: true },
-            { name: 'question_2', description: 'Custom Question 2', type: ApplicationCommandOptionType.String, required: false },
-            { name: 'question_3', description: 'Custom Question 3', type: ApplicationCommandOptionType.String, required: false },
-            { name: 'question_4', description: 'Custom Question 4', type: ApplicationCommandOptionType.String, required: false },
-            { name: 'question_5', description: 'Custom Question 5', type: ApplicationCommandOptionType.String, required: false },
-            { name: 'question_6', description: 'Custom Question 6', type: ApplicationCommandOptionType.String, required: false },
-            { name: 'question_7', description: 'Custom Question 7', type: ApplicationCommandOptionType.String, required: false },
-            { name: 'question_8', description: 'Custom Question 8', type: ApplicationCommandOptionType.String, required: false },
-            { name: 'question_9', description: 'Custom Question 9', type: ApplicationCommandOptionType.String, required: false },
-            { name: 'question_10', description: 'Custom Question 10', type: ApplicationCommandOptionType.String, required: false },
-        ]
-    }
-];
+// 2. Build out the command using standard v14 factory syntax
+const commandBuilder = new SlashCommandBuilder()
+    .setName('create_application')
+    .setDescription('Deploys a fully dynamic custom application post.')
+    .addStringOption(option => option.setName('title').setDescription('The heading title for the embed.').setRequired(true))
+    .addStringOption(option => option.setName('information').setDescription('The instructions inside the embed.').setRequired(true))
+    .addStringOption(option => option.setName('question_1').setDescription('Custom Question 1').setRequired(true))
+    .addStringOption(option => option.setName('question_2').setDescription('Custom Question 2').setRequired(false))
+    .addStringOption(option => option.setName('question_3').setDescription('Custom Question 3').setRequired(false))
+    .addStringOption(option => option.setName('question_4').setDescription('Custom Question 4').setRequired(false))
+    .addStringOption(option => option.setName('question_5').setDescription('Custom Question 5').setRequired(false))
+    .addStringOption(option => option.setName('question_6').setDescription('Custom Question 6').setRequired(false))
+    .addStringOption(option => option.setName('question_7').setDescription('Custom Question 7').setRequired(false))
+    .addStringOption(option => option.setName('question_8').setDescription('Custom Question 8').setRequired(false))
+    .addStringOption(option => option.setName('question_9').setDescription('Custom Question 9').setRequired(false))
+    .addStringOption(option => option.setName('question_10').setDescription('Custom Question 10').setRequired(false));
+
+const commands = [commandBuilder.toJSON()];
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
@@ -31,8 +29,8 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
     try {
         console.log('🔄 Updating dynamic application slash command configurations...');
         await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
-        console.log('✅ Success! Slash commands updated. You can run your Render command shuffle now.');
+        console.log('✅ Success! Slash commands updated natively in target Guild ecosystem.');
     } catch (error) {
-        console.error(error);
+        console.error('❌ DISCORD API COUPLING ERROR:', error);
     }
 })();
