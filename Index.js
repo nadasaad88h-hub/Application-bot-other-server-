@@ -247,5 +247,38 @@ async function compileAndSendApplication(interaction, questions) {
         return interaction.reply({ content: '❌ Internal pipeline delivery failed.', ephemeral: true });
     }
 }
+client.once('ready', async () => {
+    console.log(`🤖 Logged in securely as ${client.user.tag}!`);
+
+    const clientId = '1513156161753583727'; 
+    const guildId = '1506139326579216415';      
+    const { SlashCommandBuilder, REST, Routes } = require('discord.js');
+
+    const commandBuilder = new SlashCommandBuilder()
+        .setName('create_application')
+        .setDescription('Deploys a fully dynamic custom application post.')
+        .addStringOption(option => option.setName('title').setDescription('The heading title for the embed.').setRequired(true))
+        .addStringOption(option => option.setName('information').setDescription('The instructions inside the embed.').setRequired(true))
+        .addStringOption(option => option.setName('question_1').setDescription('Custom Question 1').setRequired(true))
+        .addStringOption(option => option.setName('question_2').setDescription('Custom Question 2').setRequired(false))
+        .addStringOption(option => option.setName('question_3').setDescription('Custom Question 3').setRequired(false))
+        .addStringOption(option => option.setName('question_4').setDescription('Custom Question 4').setRequired(false))
+        .addStringOption(option => option.setName('question_5').setDescription('Custom Question 5').setRequired(false))
+        .addStringOption(option => option.setName('question_6').setDescription('Custom Question 6').setRequired(false))
+        .addStringOption(option => option.setName('question_7').setDescription('Custom Question 7').setRequired(false))
+        .addStringOption(option => option.setName('question_8').setDescription('Custom Question 8').setRequired(false))
+        .addStringOption(option => option.setName('question_9').setDescription('Custom Question 9').setRequired(false))
+        .addStringOption(option => option.setName('question_10').setDescription('Custom Question 10').setRequired(false));
+
+    const rest = new REST({ version: '10' }).setToken(process.env.TOKEN || client.token);
+
+    try {
+        await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [commandBuilder.toJSON()] });
+        console.log('✅ Success! Slash commands registered directly via index.');
+    } catch (error) {
+        console.error('❌ Integration Error:', error);
+    }
+});
+
 
 client.login(process.env.TOKEN);
