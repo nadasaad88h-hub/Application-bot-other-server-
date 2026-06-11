@@ -1,9 +1,10 @@
 {
   "name": "discord-application-bot",
   "version": "1.0.0",
-  "main": "Index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node Index.js"
+    "deploy": "node deploy.js",
+    "start": "node deploy.js && node index.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
